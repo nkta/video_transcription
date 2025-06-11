@@ -28,9 +28,9 @@ def generate_srt(transcription, translation=None):
     return original_srt, translated_srt
 
 def format_time(seconds):
-    td = timedelta(seconds=seconds)
-    hours, remainder = divmod(td.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    milliseconds = int(td.microseconds / 1000)
-    
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+    """Format a timestamp in seconds for SRT output."""
+    total_ms = int(seconds * 1000)
+    hours, remainder = divmod(total_ms, 3600 * 1000)
+    minutes, remainder = divmod(remainder, 60 * 1000)
+    secs, milliseconds = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
