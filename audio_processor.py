@@ -42,3 +42,27 @@ def segment_local_audio(file_path, segment_duration):
 
 def sanitize_filename(filename):
     return "".join([c for c in filename if c.isalpha() or c.isdigit() or c in ' _-']).rstrip()
+
+def get_segment_start(segment_file):
+    """Extract the start offset (in seconds) from a segmented audio filename.
+
+    The segmentation process creates files with the pattern
+    ``<name>_start_end.mp3``. This helper parses the ``start`` value so we can
+    offset the transcription timestamps when stitching segments together.
+
+    Parameters
+    ----------
+    segment_file : str
+        Path to the audio segment file.
+
+    Returns
+    -------
+    int
+        The start time of the segment in seconds. If the filename does not
+        match the expected pattern, ``0`` is returned.
+    """
+    base = os.path.splitext(os.path.basename(segment_file))[0]
+    parts = base.split("_")
+    if len(parts) >= 3 and parts[-2].isdigit():
+        return int(parts[-2])
+    return 0
