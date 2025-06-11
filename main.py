@@ -1,7 +1,7 @@
 import sys
 import os
 import argparse
-from audio_processor import process_audio, sanitize_filename
+from audio_processor import process_audio, sanitize_filename, get_segment_start
 from transcriber import transcribe_audio
 from translator import translate_text
 from utils import save_results
@@ -13,12 +13,16 @@ def process_batch(batch, model_size, target_lang=None):
     full_transcription = {"text": "", "segments": [], "language": None}
     translation = {}
 
-    for segment in batch:
-        transcription = transcribe_audio(segment, model_size=model_size)
-        
+    for segment_file in batch:
+        transcription = transcribe_audio(segment_file, model_size=model_size)
+        offset = get_segment_start(segment_file)
+        for seg in transcription["segments"]:
+            seg["start"] += offset
+            seg["end"] += offset
+
         if not full_transcription["language"]:
             full_transcription["language"] = transcription["language"]
-        
+
         full_transcription["text"] += transcription["text"] + " "
         full_transcription["segments"].extend(transcription["segments"])
         
