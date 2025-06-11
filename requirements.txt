@@ -1,0 +1,19 @@
+# Dépendances principales pour le projet de transcription vidéo
+
+# IA et transcription
+torch>=2.0.0,<3.0.0
+faster-whisper>=0.10.0
+
+# Traitement audio et vidéo
+pydub>=0.25.1
+yt-dlp>=2023.12.30
+
+# Interface utilisateur et progression
+tqdm>=4.66.0
+
+# Dépendances système (peuvent nécessiter une installation séparée)
+# ffmpeg (requis pour pydub et yt-dlp)
+# ollama (requis pour la traduction locale)
+
+# Dépendances optionnelles pour CUDA (si GPU disponible)
+# torch[cuda] pour l'accélération GPU (à installer manuellement selon la version CUDA)
