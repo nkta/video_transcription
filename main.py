@@ -9,27 +9,23 @@ from subtitle_generator import generate_srt
 import torch
 import gc
 
-def process_batch(batch, model_size, target_lang=None):
+def process_batch(batch, model_size):
+    """Transcribe a batch of audio segments."""
     full_transcription = {"text": "", "segments": [], "language": None}
-    translation = {}
 
     for segment in batch:
         transcription = transcribe_audio(segment, model_size=model_size)
-        
+
         if not full_transcription["language"]:
             full_transcription["language"] = transcription["language"]
-        
+
         full_transcription["text"] += transcription["text"] + " "
         full_transcription["segments"].extend(transcription["segments"])
-        
-        if target_lang:
-            segment_translation = translate_text(transcription, target_lang=target_lang)
-            translation.update(segment_translation)
-        
+
         gc.collect()
         torch.cuda.empty_cache()  # Vide le cache CUDA si un GPU est utilisé
 
-    return full_transcription, translation
+    return full_transcription
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe and optionally translate audio")
@@ -73,26 +69,27 @@ def main():
         batch = audio_segments[i:i+args.batch_size]
         print(f"\nTraitement du lot {i//args.batch_size + 1}/{(len(audio_segments) + args.batch_size - 1)//args.batch_size}...")
         
-        batch_transcription, batch_translation = process_batch(batch, args.model, args.target_lang if args.translate else None)
-        
+        batch_transcription = process_batch(batch, args.model)
+
         full_transcription["text"] += batch_transcription["text"]
         full_transcription["segments"].extend(batch_transcription["segments"])
         if not full_transcription["language"]:
             full_transcription["language"] = batch_transcription["language"]
         
-        if args.translate:
-            full_translation.update(batch_translation)
-        
         gc.collect()
         torch.cuda.empty_cache()
 
     print(f"Transcription complète (premiers 100 caractères): {full_transcription['text'][:100]}...")
+
+    if args.translate:
+        print("\nÉtape 4: Traduction du texte complet...")
+        full_translation = translate_text(full_transcription, target_lang=args.target_lang)
     
-    print("\nÉtape 4: Sauvegarde des résultats...")
+    print("\nÉtape 5: Sauvegarde des résultats...")
     save_results(output_file, full_transcription, full_translation if args.translate else None)
 
     if args.srt:
-        print("\nÉtape 5: Génération des sous-titres SRT...")
+        print("\nÉtape 6: Génération des sous-titres SRT...")
         original_srt, translated_srt = generate_srt(full_transcription, full_translation if args.translate else None)
         
         original_srt_filename = os.path.join(video_output_dir, f"{output_base}.srt")
