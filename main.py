@@ -1,7 +1,7 @@
 import sys
 import os
 import argparse
-from audio_processor import process_audio, sanitize_filename
+from audio_processor import process_audio, sanitize_filename, get_segment_start
 from transcriber import transcribe_audio
 from translator import translate_text
 from utils import save_results
@@ -9,27 +9,37 @@ from subtitle_generator import generate_srt
 import torch
 import gc
 
-def process_batch(batch, model_size, target_lang=None):
+def process_batch(batch, model_size, target_lang=None, start_index=0):
     full_transcription = {"text": "", "segments": [], "language": None}
     translation = {}
+    index = start_index
 
-    for segment in batch:
-        transcription = transcribe_audio(segment, model_size=model_size)
-        
+    for segment_file in batch:
+        transcription = transcribe_audio(segment_file, model_size=model_size)
+        offset = get_segment_start(segment_file)
+        for seg in transcription["segments"]:
+            seg["start"] += offset
+            seg["end"] += offset
+
         if not full_transcription["language"]:
             full_transcription["language"] = transcription["language"]
-        
+
         full_transcription["text"] += transcription["text"] + " "
         full_transcription["segments"].extend(transcription["segments"])
-        
+
         if target_lang:
-            segment_translation = translate_text(transcription, target_lang=target_lang)
+            segment_translation = translate_text(
+                transcription,
+                target_lang=target_lang,
+                start_index=index,
+            )
             translation.update(segment_translation)
+        index += len(transcription["segments"])
         
         gc.collect()
         torch.cuda.empty_cache()  # Vide le cache CUDA si un GPU est utilisé
 
-    return full_transcription, translation
+    return full_transcription, translation, index
 
 def main():
     parser = argparse.ArgumentParser(description="Transcribe and optionally translate audio")
@@ -68,12 +78,18 @@ def main():
 
     full_transcription = {"text": "", "segments": [], "language": None}
     full_translation = {}
+    segment_index = 0
     
     for i in range(0, len(audio_segments), args.batch_size):
         batch = audio_segments[i:i+args.batch_size]
         print(f"\nTraitement du lot {i//args.batch_size + 1}/{(len(audio_segments) + args.batch_size - 1)//args.batch_size}...")
         
-        batch_transcription, batch_translation = process_batch(batch, args.model, args.target_lang if args.translate else None)
+        batch_transcription, batch_translation, segment_index = process_batch(
+            batch,
+            args.model,
+            args.target_lang if args.translate else None,
+            start_index=segment_index,
+        )
         
         full_transcription["text"] += batch_transcription["text"]
         full_transcription["segments"].extend(batch_transcription["segments"])
